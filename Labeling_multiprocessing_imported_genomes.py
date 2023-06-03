@@ -3,6 +3,7 @@ from Bio import SeqIO
 import glob
 import os
 
+#genomes were downloaded seperatly and stored as files in a directionairy. So looped within the directionairy.
 genomes = list(glob.glob("to_be_done/*.fasta"))
 def labeling(genome):i
     print("Now doing genome: {}".format(genome))
@@ -10,6 +11,7 @@ def labeling(genome):i
     parsed_genome = SeqIO.parse(genome, "fasta")
     annotated_genome = list()
     # print(species_id)
+    #replace given lalbel with in house label
     for i, seq_record in enumerate(parsed_genome):
         i = format(i, '06d')
         seq_record.id = 'DNA_' + species_id + str(i)
