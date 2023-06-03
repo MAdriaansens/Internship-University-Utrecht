@@ -1,0 +1,451 @@
+---
+title: "End Assignment MAT-50303 R for Statistics"
+subtitle: "Student Registration No.: 1022461"
+author: "Adriaanens, Mick"
+date: "\\today"
+output:
+  pdf_document:
+    fig_caption: yes
+    highlight: default
+    number_sections: no
+    toc: no
+    toc_depth: 3
+documentclass: article
+classoption: a4paper
+fontsize: 10pt
+geometry: margin=2cm
+---
+<!-- START - DO NOT EDIT THIS PART!!!! -->
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(eval = TRUE,
+                      echo = TRUE,
+                      fig.align = "center", # plots will be centered
+                      fig.pos = "!h", # figure displayed where called
+                      fig.width = 5, # plots 5 inches wide by default
+                      fig.asp = 1, # plots default height = width * asp = 5 inches
+                      fig.lp = "fig:") # reference figure starts with fig:
+```
+
+
+## Introduction 
+For the irrigation of soil dripping tubes are an essential tool, to improve their efficiency distance from the valve soiltype need to be taken in account. To answer the question how does the water discharge depend on pressure and soil type an experiment was performed. 25 independent samples of 3 different types of soil(sand, loam and clay) were made in plastic containers with driptubes at  distances from valve saturation were assessed on and degree of saturation. 
+
+## approach
+ 
+```{r loading_of_dataset_and_needed_packages}
+library("readxl")
+library("ggplot2")
+#change later on
+drip_tubes <- readxl::read_xlsx("C:/Users/micka/OneDrive/Bureaublad/R-4.2.2/MAT50303/drip_tubes.xlsx", col_names = TRUE)
+driptubes <- as.data.frame(drip_tubes)
+```
+a) The scatterplot shows that the values are concentrated together at low distance from the valve and then spread out. This is displayed in more detail by the boxplot indicating some outliers within clay. Indicating a larger difference in this soiltype compared to other soiltypes.  
+```{r scatter/boxplot}
+d <- ggplot(data = driptubes, aes(y = saturation, x = distance_cm))
+d + geom_point(aes(colour = soiltype))+ ggtitle("Scatterplot Saturation against distance from valve")
+b <- ggplot(data = driptubes, aes(y = saturation, x = soiltype))
+b + geom_boxplot(aes(colour = soiltype))+ ggtitle("Boxplot Saturation against soiltype")
+```
+
+```{r sep_linear_model}
+#subset into seperate soiltypes to fit lmo
+d_sand <- driptubes[driptubes$soiltype == "sand",]
+d_clay <- driptubes[driptubes$soiltype == "clay",]
+d_loam <- driptubes[driptubes$soiltype == "loam",]
+
+#Model per soiltype
+lmo_sand <- lm(d_sand$saturation ~ d_sand$distance_cm)
+lmo_clay <- lm(d_clay$saturation ~ d_clay$distance_cm)
+lmo_loam <- lm(d_loam$saturation ~ d_loam$distance_cm)
+
+#coefficients per model per soiltype
+print("coefficients of linear regression model for Sand")
+round(coef(object = lmo_sand), digits = 3)
+print("coefficients of linear regression model for Clay")
+round(coef(object = lmo_clay), digits = 3)
+print("coefficients of linear regression model for Loam")
+round(coef(object = lmo_loam), digits =3)
+```
+b) 
+the fitted regression equation per soiltype
+$$ Saturation(sand) = 0.459 -0.014*distance$$
+
+$$ Saturation(clay) = 0.472 -0.039*distance$$
+
+$$ Saturation(loam) = 0.587 -0.034*distance$$
+
+
+```{r plot_reg_per_soiltype}
+d <- ggplot(data = driptubes, aes(y = saturation, x = distance_cm),)
+d + geom_point(aes(colour = soiltype)) +
+    ggtitle("Saturation against distance + regression lines per soiltype") +
+    stat_smooth(aes(colour = soiltype),
+                method = "lm",
+                formula = y ~ x,
+                linewidth = 1,
+                se = FALSE) 
+```
+c) 
+the plot display linear regression lines fitted to each seperate soiltype. The fitted regression lines are not parallel and cross eachother indicating different slopes. 
+
+```{r common_regression_model_I}
+
+#soiltype is included in a model for each soiltype to 
+model_intercepts <- lm(saturation ~ distance_cm + soiltype, 
+data = driptubes)
+
+summary(model_intercepts)
+
+p <- ggplot(data = driptubes, aes(x = distance_cm, y = saturation,))
+p + geom_point(aes(colour = soiltype)) + 
+ggtitle("Saturation against distance + narrow model") + 
+geom_line(aes(y = predict(model_intercepts), colour = soiltype))
+```
+d) 
+the model display the soiltype as a factor. Whilst holding a universal slope and intercept. The model does not include any interactions between the variables of distance and soiltype. The plot display parallel lines however the extent to which these match each soiltypes values differs. It closely ressemble an ANCOVA model in the narrow sense.  Added is the formula for the linear model. 
+
+
+$$Saturation = 0.422-0.029*distance + betaLoam + betaSand$$
+```{r Anova_1}
+anova(model_intercepts)
+# df = 71, sum_sq = 0.13204 and MSE = 0.00186
+
+reduced_model <- lm(saturation ~ distance_cm, data = driptubes)
+anova(reduced_model)
+#df = 73 sum_sq = 0.39892 
+
+#for the intercepts
+F <- ((0.39892 - 0.13204)/2)/0.00186
+
+qf(p = 0.05, df1 = 2, df2 =71, lower.tail = FALSE)
+#gives 3.125764 a F critical value
+
+df(71.74, df1 = 2, df2 = 71)
+# gives 2.987525e-18 as p-value for obtained F-value
+```
+__model based on model from d__
+
+e) Test if the intercept differ significantly
+
+1. H0: betaLoam = betaSand = 0, Ha betaLoam and/or betaSand != 0
+2. TS: F= (delta SSE/delta dfE) /(MSE * FM)
+3. Under H0 the F follows the distribution of F numerator 2 and denominator 71. Which 3.126
+4. Right handed p-value will be applied
+5. If P-value of F statistic >= 0.05 H0 is accepted
+6. H0(F > 71.74) is greater than F value under H0. P-value for F is under 0.05 (2.987525e-18)
+7. H0 is rejected and Ha is accepted thus the intercepts of each of the treatments differ signigicantly 
+```{r test for slope}
+#F statistic
+summary(model_intercepts)
+
+qf(p = 0.05, df1 =1, df2 = 71, lower.tail = FALSE)
+#results in 3.975
+df(138.6, df1 = 1, df2 = 72)
+#results in 3.272851e-19
+
+```
+f) tests if the distance from the valve influences the saturation
+
+1. H0: beta1 = 0, Ha: beta1 != 0, therefore under H0 the distance from the valve would not influence the saturation 
+2. F = MSRegr/MSE 
+3. Under H~0~, F follows the F distribution with numerator =1 and denominator = 71 degrees of freedom.
+F in this distribution equals  3.97581
+4. Reject H~0~ if the F value exceeds  3.97581 and or if the p value is below 0.05. Under H~A~, the F values tends to have larger values, so a right tailed p value is used.
+5. F=MSRefr/MSE = 138.6, 138.6>3.976, p-value < 2.2e-16
+6. As F-value exceeds  3.97581 and p-value is below 0.05 the H0 is rejected and Ha is accepted.
+
+The beta1 does not equal 0 and has a p-value smaller than 0.05, indicating that the distance from the valve influences the soil saturation. 
+
+g) 
+R^2 is an estimate on the goodness of fit of a model. The R^2 is also an indication on how the model explains the variance observed in y. The R^2 -adjusted is  0.848 and indicates a strong model. 
+
+```{r for residual}
+#residual variance
+(summary(model_intercepts)$sigma)**2 
+#question i
+summary(model_intercepts)
+```
+
+h) 
+0.001859716 is the residual variance of the model (saturation ~ distance_cm + soiltype)
+
+i) 
+saturationSand = 0.422 -0.029 distance_cm + 0.113, resulting in saturation = 0.535 -0.029 distance_cm. This does not match up with the answer from b, which is to be expected when inspecting the plot where the slope of each seems to differ. 
+
+$$SaturationSand = 0.422 - 0.029*distance + 0.113$$
+
+```{r different slopes + intercept}
+full_model_slopes <- lm(saturation ~ distance_cm + distance_cm:soiltype + 
+soiltype, data = driptubes)
+
+p <- ggplot(data = driptubes, aes(x = distance_cm, y = saturation,))
+p + geom_point(aes(colour = soiltype)) + 
+ggtitle("Saturation against distance + broad model") +
+geom_line(aes(y = predict(full_model_slopes), colour = soiltype))
+```
+
+
+j)
+new model is fitted where the slopes being different between soiltype is taken into account, this seems to fit better and the slope seems to especially fit Sand the best. As its include different intercepts and slopes its considered a broad sense model
+
+__model from j will be used__
+
+k)
+the R-adjusted of this model is 0.9272.  which is higher than the previous model. Its closer to 1 indicating a stronger correlation now as more variables are accounted for. 
+
+l)
+$$saturationSand= 0.479 - 0.039*distance + 0.025*distance - 0.013$$
+which is rewritten as:
+$$SatuartionSand= 0.466 - 0.014*distance$$
+The first introduced formula does not seem to come close to the answer of b. However upon further investigation and addition of each you can see a strong overlap between each. As formula in B was only targeted at the Sand values and not those of the experiment in general. The formula currently presented is a strong reflection of both the sand and the values of the entire experiment, its more over more significant as more values are included for the intercept and the slope. 
+
+```{r calculation}
+saturation_loam_at_5 <- 0.472462 + 0.110264 - 0.0392*5 + 0.005343 *5
+``` 
+m) 
+saturation loam (distance_cm 5) = 0.413441
+
+```{r anova_table}
+summary(full_model_slopes)
+qf(0.05, df1 = 2, df2 = 69, lower.tail = FALSE)
+3.129644
+
+model_no_diff_slopes <- lm(saturation ~ distance_cm + soiltype, data =driptubes)
+anova(full_model_slopes)
+#df = 69
+#ssq = 0.01647
+#MSE = 0.00089
+anova(model_no_diff_slopes)
+#df = 71
+#ssq = 0.13204
+
+F_no_slopes <-((0.13204 -0.01647) /2)/0.00089
+df(64.92, df1 = 2, df2 = 69)
+#value is 4.811267e-17
+```
+n) test if the slopes are different using ANOVA
+
+1. H0: beta_2sand=beta_2loam=0, Ha: beta_2sand and/or beta_2loam != 0
+2. TS: F= (delta SSE/delta dfE) /(MSE * FM)
+3. Under H0 F follows distribution with nominator 2 and denominator of 69. Which results in a F-value of 3.129644
+4. F tends to higher values therefore right sides p-value
+5. F = 64.92 with p-value 4.811267e-17.
+6. 64.92 > 3.129. p-value > 0.05.
+7. H0 is rejected indicating that the slopes differs significantly. 
+
+o)
+For this experiment it would not be logical to include a common intercept as this experiment does not start at 0 but at 1, so the intercept/starting values are already affected by adding water. 
+If we start at 0 it would be logical to include a common intercept as all the experiments start with the same level of liquid assuming that the way its measurements are the same for each method. 
+
+Fitting a similar slope is logical as its tested in this experiment if any soils aside from different intercepts. 
+
+
+```{r same_intercept_diff_slope}
+full_model_slopes_no_unique_intercept <- lm(saturation ~ distance_cm + 
+distance_cm:soiltype, data = driptubes)
+p <- ggplot(data = driptubes, aes(x = distance_cm, y = saturation,))
+p + geom_point(aes(colour = soiltype)) + 
+ggtitle("Saturation against distance + 
+        model common intercept and different slopes") +
+geom_line(aes(y = predict(full_model_slopes_no_unique_intercept),
+              colour = soiltype))
+```
+p) 
+The model clearly seems to fit less well compared to the previous applied models as the current R^2 adjusted (0.8649) is lower compared to previous models. This is matched by the plot which shows for the clay a linear regression model which strongly deviates from observed values. 
+
+```{ r coefficient_model}
+summary(full_model_slopes_no_unique_intercept)
+```
+q) a greater negative slope and intercept are displayed. The rise of the intercept leads to a steeper down slope. 
+$$saturationSand = 0.504-0.021*distsance$$
+__distance as qualitative variable__
+
+```{r means}
+library(tidyr)
+library(dplyr)
+dt_qual <- driptubes
+dt_qual$distance_cm <- as.factor(dt_qual$distance_cm)
+
+table <- dt_qual %>%
+  group_by(distance_cm, soiltype) %>% 
+  summarise_at(vars(saturation), list(name = mean)) 
+table_to_print <- table %>%
+  spread(key=soiltype, value=name)
+
+table_to_print
+```
+
+r) 
+The conditional means are the means at each distance for the seperate factors(Clay, Sand and Loam). The marginal means are the means of the values at each distance for all factors combined. 
+
+```{r plot_of_means}
+s <- ggplot(data = dt_qual, aes(y = saturation, 
+                                x = distance_cm, fill = soiltype))
+s + stat_summary(fun = mean, geom = "bar", position = "dodge") + 
+  ggtitle("mean saturation against distance")
+```
+s) 
+The plot above displays the decrease of saturation due to increased distance observed in other figures and plots as well. 
+
+
+```{r models_anova}
+#also apply the soiltype as qualitative no right?
+#first introduce the full model with best R^2 adjusted so far
+full_model_qual <- lm(saturation ~ distance_cm + soiltype + 
+                        distance_cm:soiltype, data = dt_qual) 
+anova(full_model_qual)
+dF_anova_fm_q <- 60
+Sum_sq_fm_q <- 0.01238
+anova(full_model_slopes)
+dF_anova_fm_sl <- 69
+Sum_sq_fm_sl <- 0.06147
+Mean_sq_fmsl <- 0.00089
+
+#df =1 as there is only 1 variable being tested
+pf(6.12859, df1 =1, df2 = 69, lower.tail = FALSE)
+qf(0.05, df1 =1, df2 = 69, lower.tail = FALSE)
+F_Sl_q <- ((Sum_sq_fm_q - Sum_sq_fm_sl)/-9)/Mean_sq_fmsl
+F_Sl_q
+
+#equal variance of residuals
+#indep residuals
+summary(full_model_qual)
+```
+t)Analysis of variance or ANOVA will be performed with the Hypothesis
+
+1. H0 assumes F =0 as no difference between models are observed, Ha F > 0
+2. F = (delta SSE/delta df)/MSE
+3. Under H0 F ~ F(1, 69) = 3.979
+4. Right sided p-value
+5. Outcome TS , F= 6.128. p-value = 0.015
+6. as 6.128 > 3.979 and p-value 0.015 < 0.05, the H0 is rejected and Ha is accepted
+
+u)
+From model full_model_qual both the soiltype and distance are indicated as qualitative variables. The values are given in the table below. This results in an estimate value of saturation of 0.4164678 for loam at 5cm from the valve. 
+
+v)
+The model assumptions of the model all relate to residuals,
+1. Normally distribution of data
+2. Equal variance of residuals
+3. Linear relation between y and x
+
+the residual from the residuals vs fitted all have a mean of 0. QQplot displays normally distributed data. These first two plot also indicate that the residuals are normally distributed. These plot give strong indication that the residuals meet the assumptions needed to use 
+For certainty the entire data was also plotted to see if saturation and distance had a linear relation. 
+```{r QQplot}
+plot(full_model_qual)
+plot(dt_qual)
+```
+
+__additional experimental data__
+
+w)
+The number of individuals on which test were performed are 5 per type of soil so 15 experimental units are present. This means that the degrees of freedoms and standard errors are now different resulting in the distributions being tested for are different. critical F-values could have been changed as are the resulting and calculated F-values.
+
+x)
+```{r sort_data}
+#expand
+
+driptubes <- driptubes[order(driptubes$soiltype, driptubes$replication, 
+                             driptubes$distance_cm),]
+head(driptubes, 7)
+```
+
+```{r fmodel}
+
+#subset distance 3  
+driptubes_dis_3 <- driptubes[driptubes$distance_cm == 3,]
+#the distance is now excluded
+lmo_3 <- lm(saturation ~ soiltype, data = driptubes_dis_3)
+summary(lmo_3)
+qf(0.05, df1=2, df=12, lower.tail = TRUE)
+#0.05151317
+
+```
+
+y) do the factors soiltype differ (have any predictive value)?
+
+1. H0: B1 = Bsand = Bloam = 0, Ha: at least one is not equal to 0
+2. F= MSRegr/MSE
+3. under H0 F~ (2,12) which is 0.05151317. 
+4. F tends to higher values so right sides p-values
+5. F = 185.6, p-value = 9.418*10^-10
+6. As 185.64 > 0.0515 the H0 is rejected and soil types at distance 3 have a significant difference. 
+
+```{r pairwise}
+library(emmeans)
+pairs(emmeans(lmo_3, ~soiltype))
+```
+z)
+Pairwise comparison is made using the Tukey test to test for significant differences between the values at distance_cm 3. Using the Tukey test we observe a significant differrence between each of the soiltypes.
+
+
+
+
+aa) 
+As all the measurements of different distances are performed on the same containers they are not independent samples. However using only measurements at specific constant distances allows for Independence per duplicate. Isolated each distance is independent but can not be compared to other distances, 
+
+ab)
+
+```{r loop}
+sand <- driptubes$soiltype == "sand"
+clay <- driptubes$soiltype == "clay"
+loam <- driptubes$soiltype == "loam"
+
+slope <- data.frame()
+for (i in unique(dt_qual$replication)) { 
+ lm_sand <- lm(saturation ~ distance_cm, data = 
+                 driptubes[sand & driptubes$replication == i,])
+ lm_clay <- lm(saturation ~ distance_cm, data = 
+                 driptubes[clay & driptubes$replication == i,])
+ lm_loam <- lm(saturation ~ distance_cm, data = 
+                 driptubes[loam & driptubes$replication == i,])
+ slope[1,i] <- round(coef(summary(lm_sand))["distance_cm","Estimate"], digits = 3)
+ slope[2,i] <- round(coef(summary(lm_clay))["distance_cm","Estimate"], digits = 3)
+ slope[3,i] <- round(coef(summary(lm_loam))["distance_cm","Estimate"], digits = 3)
+}
+rownames(slope) <- c("Sand", "Clay", "Loam")
+colnames(slope) <- c("Container_1", "Container_2", "Container_3", "Container_4", "Container_5")
+
+knitr::kable(slope)
+
+```
+ac)
+```{r}
+driptubes_sand <- driptubes[driptubes$soiltype == "sand",]
+sand_slope <- sapply(X = split(x = driptubes_sand, f = driptubes_sand$replication), FUN = function(x) round(coef((lm(saturation ~ distance_cm, data = x)))[-1], digits = 3))
+
+driptubes_clay <- driptubes[driptubes$soiltype == "clay",]
+clay_slope <- sapply(X = split(x = driptubes_clay, f = driptubes_clay$replication), FUN = function(x) round(coef((lm(saturation ~ distance_cm, data = x)))[-1], digits =3))
+
+driptubes_loam <- driptubes[driptubes$soiltype == "loam",]
+loam_slope <- sapply(X = split(x = driptubes_loam, f = driptubes_loam$replication), FUN = function(x) round(coef((lm(saturation ~ distance_cm, data = x)))[-1], digits= 3))
+
+slope_II <- rbind(sand_slope, clay_slope)
+slope_II <- rbind(slope_II, loam_slope)
+
+rownames(slope_II) <- c("Sand", "Clay", "Loam")
+colnames(slope_II) <- c("Container_1", "Container_2", "Container_3", "Container_4", "Container_5")
+slope_II <- as.data.frame(slope_II)
+
+identical(slope, slope_II)
+```
+
+```{r slopes_ANOVA}
+library(emmeans)
+lmo_dt_qual_slopes <- lm(saturation ~ soiltype, data = driptubes_dis_3)
+anova(lmo_dt_qual_slopes)
+
+qf(0.05, df1 = 8, df2 = 60, lower.tail = FALSE)
+
+summary(lmo_dt_qual_slopes)
+
+pf(66.8, df1 = 8, df2 = 60, lower.tail = FALSE)
+#5.310519e-27
+```
+ad)
+1. under H0: distance_3:sand = distance_3:loam = distance_5:sand = etc = 0, Ha: at least one is not equal to 0.
+2. F = (delta SSE/delta df)/MSE
+3. Under H0 F~ numerator is 8 and denumerator is 60 which is 2.097
+4. F tends to higher values, therefore p-value tend to the right
+5. F= 185.6 which is higher than F-value of 2.097, p-value also lies below 0.05
+6. H0 is rejected and Ha is accepted indicating a difference between the slopes of the soiltypes.
