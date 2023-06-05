@@ -1,7 +1,7 @@
 #appending new proteome to large general proteome file
 
 from Bio import SeqIO
-imporsplt glob
+import glob
 genomes = list(glob.glob("./abbreviation/*.fasta"))
 #genomes = ["/home/max/NOBINFBACKUP/Monocentrics/Proteomes/NotAnnotated/ACACAS.fasta"]
 for genome in genomes:
