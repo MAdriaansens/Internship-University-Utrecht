@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import subprocess
+
 df = pd.read_csv('Euk5_genome_download_edit.csv', sep = ',')
 genome_name= list(df['genome_name'])
 index =df.set_index('genome_name', inplace=True)
