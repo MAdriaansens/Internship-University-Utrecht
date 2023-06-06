@@ -1,5 +1,5 @@
-#list of remoddeling and editing software
-
+#list of remoddeling and editing
+#Using newick format as well
 
 import os
 import pandas as pd
