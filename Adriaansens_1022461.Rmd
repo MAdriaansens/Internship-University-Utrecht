@@ -1,3 +1,4 @@
+#this is an excerise on statistics in R
 ---
 title: "End Assignment MAT-50303 R for Statistics"
 subtitle: "Student Registration No.: 1022461"
